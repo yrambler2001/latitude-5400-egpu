@@ -1,0 +1,24 @@
+# Logs copied off the USB stick
+egpu-log*.txt
+*.log
+
+# Firmware dumps: Dell's ACPI tables are proprietary; never commit them
+*.dat
+*.aml
+*.dsl
+acpi-dump/
+
+# Downloaded binaries (fetched and hash-verified by Install-UsbShell.ps1)
+*.efi
+*.iso
+
+# BCD exports and local state
+bcd-backup*
+state.json
+
+# OS / editor noise
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

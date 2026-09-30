@@ -1,0 +1,17 @@
+@echo -off
+# Chainload Windows Boot Manager from the first fsN: that has it.
+# Rendered by scripts\Install-UsbShell.ps1
+
+echo "[4] win.nsh: GPU on bus {{SECBUS}} just before starting Windows" >>a egpu-log.txt
+pci {{SECBUS}} 00 00 >>a egpu-log.txt 2>>a egpu-log.txt
+mm {{RP}}{{LSTA}} -pci -w 2 -n >>a egpu-log.txt
+echo "[4] launching Windows Boot Manager" >>a egpu-log.txt
+
+echo "Starting Windows Boot Manager - pick: {{WIN_ENTRY}}"
+map -r
+for %a run (0 9)
+  if exist fs%a:\EFI\Microsoft\Boot\bootmgfw.efi then
+    fs%a:\EFI\Microsoft\Boot\bootmgfw.efi
+  endif
+endfor
+echo "Windows Boot Manager not found on fs0-fs9. Run  map -r  and start it manually."

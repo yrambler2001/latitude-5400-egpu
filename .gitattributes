@@ -1,0 +1,8 @@
+* text=auto
+
+# The UEFI Shell and Windows PowerShell 5.1 are happiest with CRLF
+*.nsh           text eol=crlf
+*.nsh.template  text eol=crlf
+*.ps1           text eol=crlf
+
+*.md            text eol=lf

@@ -1,0 +1,93 @@
+@echo -off
+# eGPU link bring-up for an M.2 PCIe slot - rendered by scripts\Install-UsbShell.ps1
+# Root port {{RP_PCI}} (mm prefix {{RP}}), GPU expected on bus {{SECBUS}}.
+# Everything is appended to \EFI\shell\egpu-log.txt on the USB stick.
+
+# --- make the USB folder the working directory ---------------------------------
+for %u run (0 9)
+  if exist fs%u:\EFI\shell\win.nsh then
+    fs%u:
+    cd \EFI\shell
+  endif
+endfor
+
+echo "===================== NEW RUN =====================" >>a egpu-log.txt
+date >>a egpu-log.txt
+time >>a egpu-log.txt
+
+# --- [1] state with the placeholder SSD still in the slot ----------------------
+echo "[1] BEFORE SWAP: all PCI devices" >>a egpu-log.txt
+pci >>a egpu-log.txt
+echo "[1] root port {{RP_PCI}} decoded" >>a egpu-log.txt
+pci {{RP_PCI}} -i >>a egpu-log.txt
+echo "[1] PCIe capability ID at 0x{{CAP}} (expect 0x10):" >>a egpu-log.txt
+mm {{RP}}{{CAP}} -pci -w 1 -n >>a egpu-log.txt
+
+echo " "
+echo "=== eGPU helper - logging to \EFI\shell\egpu-log.txt ==="
+echo "PCIe capability check (must show 0x10):"
+mm {{RP}}{{CAP}} -pci -w 1 -n
+echo " "
+
+# --- [1b] limit the root port to Gen1 BEFORE the GPU is attached --------------
+echo "[1b] LinkCtl2 = 01 (target link speed Gen1)" >>a egpu-log.txt
+mm {{RP}}{{LCTL2}} 01 -pci -w 1 -n
+mm {{RP}}{{LCTL2}} -pci -w 1 -n >>a egpu-log.txt
+echo "[1c] BridgeCtl (0x3E) before:" >>a egpu-log.txt
+mm {{RP}}3E -pci -w 1 -n >>a egpu-log.txt
+echo "Root port limited to Gen1 (2.5 GT/s)."
+
+echo "1) Remove the SSD.  2) Plug in the eGPU adapter with the GPU PSU OFF."
+echo "3) Switch the GPU PSU ON, wait 5 seconds, then press any key."
+pause
+
+# --- [2] right after the swap --------------------------------------------------
+echo "[2] AFTER SWAP: GPU on bus {{SECBUS}}?" >>a egpu-log.txt
+pci {{SECBUS}} 00 00 >>a egpu-log.txt 2>>a egpu-log.txt
+echo "[2] root port decoded" >>a egpu-log.txt
+pci {{RP_PCI}} -i >>a egpu-log.txt
+echo "[2] LinkCtl LinkSta LinkCtl2:" >>a egpu-log.txt
+mm {{RP}}{{LCTL}} -pci -w 1 -n >>a egpu-log.txt
+mm {{RP}}{{LSTA}} -pci -w 2 -n >>a egpu-log.txt
+mm {{RP}}{{LCTL2}} -pci -w 1 -n >>a egpu-log.txt
+echo "GPU check (AMD vendor = 1002):"
+pci {{SECBUS}} 00 00
+echo " "
+echo "Resetting and retraining the link at Gen1..."
+
+# --- [3a] Secondary Bus Reset (BridgeCtl bit 6) -------------------------------
+echo "[3a] Secondary Bus Reset: BridgeCtl {{BCTL_SBR}} -> {{BCTL_ORIG}}" >>a egpu-log.txt
+mm {{RP}}3E {{BCTL_SBR}} -pci -w 1 -n
+stall 100000
+mm {{RP}}3E {{BCTL_ORIG}} -pci -w 1 -n
+stall 1000000
+echo "[3a] after SBR: LinkSta, GPU:" >>a egpu-log.txt
+mm {{RP}}{{LSTA}} -pci -w 2 -n >>a egpu-log.txt
+pci {{SECBUS}} 00 00 >>a egpu-log.txt 2>>a egpu-log.txt
+
+# --- [3] Gen1 + link disable/enable + retrain, ASPM off -----------------------
+echo "[3] LinkCtl2=01, LinkCtl {{LCTL_DIS}} (disable) -> {{LCTL_EN}} -> {{LCTL_RT}} (retrain)" >>a egpu-log.txt
+mm {{RP}}{{LCTL2}} 01 -pci -w 1 -n
+mm {{RP}}{{LCTL}} {{LCTL_DIS}} -pci -w 1 -n
+stall 200000
+mm {{RP}}{{LCTL}} {{LCTL_EN}} -pci -w 1 -n
+stall 1000000
+mm {{RP}}{{LCTL}} {{LCTL_RT}} -pci -w 1 -n
+stall 3000000
+
+echo "[3] AFTER RESET+RETRAIN: GPU on bus {{SECBUS}}?" >>a egpu-log.txt
+pci {{SECBUS}} 00 00 >>a egpu-log.txt 2>>a egpu-log.txt
+echo "[3] root port decoded" >>a egpu-log.txt
+pci {{RP_PCI}} -i >>a egpu-log.txt
+echo "[3] LinkCtl LinkSta LinkCtl2:" >>a egpu-log.txt
+mm {{RP}}{{LCTL}} -pci -w 1 -n >>a egpu-log.txt
+mm {{RP}}{{LSTA}} -pci -w 2 -n >>a egpu-log.txt
+mm {{RP}}{{LCTL2}} -pci -w 1 -n >>a egpu-log.txt
+echo "[3] all PCI devices" >>a egpu-log.txt
+pci >>a egpu-log.txt
+
+echo "GPU check after reset + retrain:"
+pci {{SECBUS}} 00 00
+echo "Press any key to start Windows (pick: {{WIN_ENTRY}})."
+pause
+win.nsh

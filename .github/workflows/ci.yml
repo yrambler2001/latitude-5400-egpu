@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint-and-render:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse all PowerShell scripts (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $failed = $false
+          Get-ChildItem scripts\*.ps1 | ForEach-Object {
+            $err = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$err)
+            if ($err) { $failed = $true; $err | ForEach-Object { Write-Error "$($_.Extent.File):$($_.Extent.StartLineNumber) $($_.Message)" } }
+          }
+          if ($failed) { exit 1 }
+
+      - name: PSScriptAnalyzer
+        shell: powershell
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $issues = Invoke-ScriptAnalyzer -Path scripts -Severity Error
+          $issues | Format-Table -AutoSize
+          if ($issues) { exit 1 }
+
+      - name: Render UEFI Shell scripts and verify no tokens remain
+        shell: powershell
+        run: |
+          .\scripts\Install-UsbShell.ps1 -Destination "$env:RUNNER_TEMP\render"
+          foreach ($f in 'startup.nsh','win.nsh') {
+            $t = Get-Content "$env:RUNNER_TEMP\render\$f" -Raw
+            if ($t -match '\{\{') { throw "Unrendered token in $f" }
+          }
+          Get-Content "$env:RUNNER_TEMP\render\startup.nsh" | Select-String 'mm ' | Select-Object -First 5
