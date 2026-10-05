@@ -21,18 +21,19 @@ In the UEFI Shell, `pci` lists everything, and `pci 00 1D 00 -i` decodes the por
 In the shell: `pci <bb dd ff> -i` shows the capability list. Or `mm <prefix>40 -pci -w 1 -n`
 should return `0x10`. If it's elsewhere, pass `-PcieCapOffset`.
 
-## 3. Record the original Bridge Control value
-
-Run the shell script once (the log section `[1c]`), or `mm <prefix>3E -pci -w 1 -n`. Pass it as
-`-BridgeControl`.
-
-## 4. Render
+## 3. Build the stick
 
 ```powershell
-.\scripts\Install-UsbShell.ps1 -DriveLetter E -RootPort 00:1C.4 -SecondaryBus 05 -BridgeControl 00
+.\scripts\Install-UsbShell.ps1 -DriveLetter E -RootPort 00:1C.4 -SecondaryBus 05
 # or inspect first:
 .\scripts\Install-UsbShell.ps1 -Destination .\out -RootPort 00:1C.4 -SecondaryBus 05
 ```
+
+## 4. Find your speed
+
+Boot with `gen1` first. Once that works, try one step higher per boot. After 10-15 minutes of GPU
+load, compare the WHEA counts from `Get-EgpuStatus.ps1`. `gen4` only makes sense if both your root
+port and your GPU support 16 GT/s.
 
 ## 5. Things that may differ
 
@@ -40,4 +41,6 @@ Run the shell script once (the log section `[1c]`), or `mm <prefix>3E -pci -w 1 
 - **You may have Modern Standby (S0ix)** instead of S3, so sleep/wake behaves differently.
 - **Your PCI0 window may really be too small.** Then a DSDT window may be needed
   ([dsdt-notes.md](dsdt-notes.md)); read the lessons there first.
-- **Your riser may run fine at Gen2.** Change `mm ...70 01` to `02` and watch the WHEA count.
+- **Your firmware may have a GPIO-controlled PERST# for the slot** (look for `_ON`/`_OFF` power
+  resources under the root port in the DSDT/SSDTs). If so, a software PERST# pulse could replace the
+  PSU power-cycle.

@@ -68,32 +68,43 @@ event 17** (corrected PCIe AER errors) in two minutes. All came from Root Port `
 **Conclusion:** the M.2-adapter + USB-cable riser chain can't carry Gen3 cleanly. At **Gen1** the
 count is **0**.
 
-## 5. Hot-swap: link stuck in training
+## 5. GPU attached in the shell: link sometimes never comes up
 
-**Observation** (UEFI Shell log, run 1): with the GPU already powered, then plugged in after
+**Observation** (UEFI Shell log): with the GPU already powered, then plugged in after
 removing the SSD:
 
-- Link Status `0x5011` right after the swap, then `0x5811` after link disable/enable + retrain:
+- Link Status `0x5011`, then `0x5811` after retrain attempts:
   - `Link Training` = 1 (stuck), `Data Link Layer Link Active` = 0
 - The endpoint config space reads all `FF`.
 
 The PHY detects a receiver, but the link never reaches L0.
 
-**Fix** (run 2), which worked:
-- plug the adapter with the **GPU PSU off**, then switch it on;
-- a Secondary Bus Reset, link disable/enable and retrain at Gen1.
+**What works:** plug the adapter with the **GPU PSU off**, then switch it on, so the GPU comes out
+of its power-on reset with the reference clock already running. That doesn't succeed every time.
+When it fails, **power-cycling the PSU again and re-checking** has always brought the link up.
 
-Result: Link Status `0x7011` (Gen1, x1, DLL Link Active = 1), and the GPU answers as `1002:67DF`.
+**Evidence from 18 logged shell runs:**
 
-> **Not isolated:** run 2 changed the power order **and** added the Secondary Bus Reset at the
-> same time. Link Status was already `0x7011` **before** the SBR, right after the swap. So the
-> power order is the likely fix, and the SBR is kept as a harmless extra.
+| Finding | Runs |
+|---|---|
+| In every successful run, the GPU already answered right after the swap, before any software reset | 7 of 7 |
+| A failed swap (`FF FF`) was rescued by Secondary Bus Reset / link disable / retrain | 0 |
+| A working link was **broken** by the reset/retrain sequence | 1 |
+| Failed runs fixed by a PSU power-cycle + re-check | every case tried |
+
+So since v1.1.0 the scripts do **no** software reset at all. They set the target speed, wait for
+the swap, check, and let you retry with a PSU power-cycle (`again`).
+
+**Speed:** Gen1 and Gen2 both come up. With Gen2 the link was `0x7012` (5 GT/s x1, active).
+The initial link-up difficulty was the same at both speeds.
 
 ## 6. Enumerated at boot → Windows allocates it
 
 With the link up **before** Windows starts, Windows enumerates the GPU during boot and places it
-in a new 256 MB window, `0xD0000000-0xDFFFFFFF`. The result: code 0, AMD driver loaded, 0 AER
-errors.
+in a new 256 MB window, `0xD0000000-0xDFFFFFFF`. The result:
+- code 0, AMD driver loaded;
+- 0 AER errors at Gen1;
+- 12 AER errors at idle at Gen2 (sustained load not yet measured).
 
 The boot entry used had `usefirmwarepcisettings No`. **Not isolated:** it has not been tested
 whether a normal entry also allocates correctly when the GPU is present at boot.
@@ -103,7 +114,8 @@ whether a normal entry also allocates correctly when the GPU is present at boot.
 ```
 empty slot at POST ──► root port disabled ─────────────► never detectable
 GPU at POST ─────────► BIOS allocation fails ──────────► 0xA5 in Dell AML
-SSD at POST, swap ───► port alive, link needs reset ───► S3 wake: works, but Code 12 (1 MB window)
-                                                  └────► UEFI Shell: power-order + reset + Gen1
-                                                          ──► GPU visible at boot ──► Windows sizes window ──► OK
+SSD at POST, swap ───► port alive, GPU needs a clean power-on
+                         ├─► S3 wake: works, but Code 12 (1 MB window)
+                         └─► UEFI Shell: set speed, PSU on after plug (retry PSU cycle if FF)
+                               ──► GPU visible at boot ──► Windows sizes window ──► OK
 ```

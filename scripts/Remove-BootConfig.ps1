@@ -21,6 +21,7 @@ $statePath = Join-Path $StateDir 'state.json'
 if (-not (Test-Path $statePath)) { throw "No state file at $statePath. Nothing recorded to remove." }
 $state = Get-Content $statePath -Raw | ConvertFrom-Json
 
+# shellEntry only exists in state files written by v1.0.0 (custom F12 entry)
 foreach ($id in @($state.windowsEntry, $state.shellEntry) | Where-Object { $_ }) {
     $exists = (& bcdedit.exe /enum $id 2>&1 | Out-String) -match [regex]::Escape($id)
     if (-not $exists) { Write-Host "$id already gone"; continue }

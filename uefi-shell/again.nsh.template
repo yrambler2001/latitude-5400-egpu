@@ -1,0 +1,20 @@
+@echo -off
+# Check the GPU without touching the link. If it doesn't answer, the fix is to power-cycle
+# the GPU PSU and run this again. (Software resets never rescued a failed link in testing.)
+
+echo "[2] CHECK: GPU on bus {{SECBUS}}? LinkCtl2, LinkSta:" >>a egpu-log.txt
+time >>a egpu-log.txt
+mm {{RP}}{{LCTL2}} -pci -w 1 -n >>a egpu-log.txt
+mm {{RP}}{{LSTA}} -pci -w 2 -n >>a egpu-log.txt
+pci {{SECBUS}} 00 00 >>a egpu-log.txt 2>>a egpu-log.txt
+
+echo " "
+echo "GPU check - an AMD card answers with  02 10 ..  (vendor 1002); FF FF = nothing:"
+pci {{SECBUS}} 00 00
+echo "Link Status (0x7xxx = link up, 0x5xxx = down):"
+mm {{RP}}{{LSTA}} -pci -w 2 -n
+echo " "
+echo "GPU shown?  YES: press any key to start Windows."
+echo "NO (FF FF): press q, switch the PSU OFF, wait 5 s, ON, wait 5 s, then type:  again  (or again.nsh)"
+pause
+win.nsh

@@ -1,0 +1,10 @@
+@echo -off
+# Launcher. Installed as \EFI\BOOT\startup.nsh and \startup.nsh, because the shell itself is
+# \EFI\BOOT\BOOTX64.EFI (what firmware runs when you pick the USB stick in F12).
+for %u run (0 9)
+  if exist fs%u:\EFI\shell\startup.nsh then
+    fs%u:
+    cd \EFI\shell
+    fs%u:\EFI\shell\startup.nsh
+  endif
+endfor

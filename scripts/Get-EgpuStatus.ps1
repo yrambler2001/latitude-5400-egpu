@@ -85,6 +85,7 @@ for ($i = 0; $i -lt $run.Count; $i++) {
     $l = $run[$i]
     if ($l -match '^\[(\w+)\]') { $stage = $Matches[1] }
     if ($l -match '^\d\d:\d\d:\d\d') { "time          : $l" }
+    if ($l -match '^\[1b\]' -and $run[$i + 1] -match '^0x0?([0-9A-Fa-f])$') { "[1b] target   : Gen$([Convert]::ToInt32($Matches[1], 16))" }
     if ($l -match 'Bus \w\w Device 00 Func 00' -and $run[$i + 1] -match '00000000:\s+(\w\w) (\w\w) (\w\w) (\w\w)') {
         $vid = $Matches[2] + $Matches[1]; $did = $Matches[4] + $Matches[3]
         '[{0,-2}] endpoint : {1}' -f $stage, $(if ($vid -eq 'FFFF') { 'nothing answering (FFFF)' } else { "vendor $vid device $did" })

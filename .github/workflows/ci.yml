@@ -33,8 +33,9 @@ jobs:
         shell: powershell
         run: |
           .\scripts\Install-UsbShell.ps1 -Destination "$env:RUNNER_TEMP\render"
-          foreach ($f in 'startup.nsh','win.nsh') {
+          foreach ($f in 'EFI\shell\startup.nsh','EFI\shell\flow.nsh','EFI\shell\again.nsh','EFI\shell\win.nsh','EFI\shell\gen2.nsh','EFI\BOOT\startup.nsh') {
             $t = Get-Content "$env:RUNNER_TEMP\render\$f" -Raw
             if ($t -match '\{\{') { throw "Unrendered token in $f" }
           }
-          Get-Content "$env:RUNNER_TEMP\render\startup.nsh" | Select-String 'mm ' | Select-Object -First 5
+          if (-not (Test-Path "$env:RUNNER_TEMP\render\EFI\BOOT\BOOTX64.EFI")) { throw "BOOTX64.EFI missing" }
+          Get-Content "$env:RUNNER_TEMP\render\EFI\shell\flow.nsh" | Select-String 'mm '

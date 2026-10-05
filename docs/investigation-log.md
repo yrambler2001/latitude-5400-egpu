@@ -77,6 +77,27 @@ Secondary Bus Reset.
 - Windows booted, enumerated the GPU and allocated `0xD0000000-0xDFFFFFFF`.
 - The RX 580 is **OK, code 0**, AMD driver 31.0.12027.9001, **0 WHEA** events.
 
+## 8. Gen2 attempts and a simpler boot (second session)
+
+- **The custom F12 entry turned out to be unreliable to find.** Dell lists firmware-app entries
+  inconsistently. The fix: install the shell as the stick's `\EFI\BOOT\BOOTX64.EFI`, so picking
+  the stick in F12 is enough.
+- **Gen2: the first three runs all failed in the shell** (`0x5011` → `0x5811`, endpoint `FF`).
+  Waiting 10 s and three SBR + retrain rounds didn't help.
+  - Both times, the GPU "appeared" in Windows only after an **S3 sleep/wake**: at Gen3, with Code 12
+    and a WHEA flood. The wake pulses PERST# and resets Link Control 2 to its default.
+  - An early theory, that Windows reset the port by itself about 40 s after boot, was **wrong**. The
+    event log shows `Kernel-Power 42/107` (sleep/resume) right before each arrival.
+- **User finding: when the check shows `FF FF`, quitting the script, power-cycling the GPU PSU and
+  re-checking makes it come up.**
+- **Across all 18 logged runs:**
+  - successes were always visible right after the swap;
+  - the reset/retrain sequence never rescued a failure, and once broke a working link.
+
+  The scripts were simplified to set speed → swap → check → (PSU cycle → `again`).
+- **Result: Gen2 x1 working.** Code 0, 256 MB window, 12 WHEA events at idle.
+- **A speed menu was added** (`gen1`-`gen4`). The UEFI Shell can't read typed input into a
+  variable, so each choice is a tiny script that calls `flow.nsh <speed>`.
 ## Tooling notes
 
 - `acpidump -b` on Windows can't read dynamically loaded SSDTs ("Could not get SSDT registry entry").

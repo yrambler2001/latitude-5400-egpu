@@ -1,0 +1,14 @@
+@echo -off
+# Shared flow, called as:  flow.nsh <LinkCtl2 target speed 01..04>
+# Sets the root port's Target Link Speed BEFORE the GPU is attached, then guides the swap.
+
+echo "[1b] setting LinkCtl2 = %1 (target speed) before swap" >>a egpu-log.txt
+mm {{RP}}{{LCTL2}} %1 -pci -w 1 -n
+mm {{RP}}{{LCTL2}} -pci -w 1 -n >>a egpu-log.txt
+echo "Target link speed set to %1  (01=Gen1 02=Gen2 03=Gen3 04=Gen4). Read back:"
+mm {{RP}}{{LCTL2}} -pci -w 1 -n
+echo " "
+echo "1) Remove the SSD.  2) Plug in the eGPU adapter with the GPU PSU OFF."
+echo "3) Switch the GPU PSU ON, wait 5 seconds, then press any key."
+pause
+again.nsh

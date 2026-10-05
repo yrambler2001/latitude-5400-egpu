@@ -28,17 +28,20 @@ chains often leave it floating.
 
 The order that works:
 
-1. Laptop is in the UEFI Shell with the root port already set to Gen1 (the script does this).
+1. Laptop is in the UEFI Shell with the link speed already chosen (`gen1`-`gen4`).
 2. Remove the placeholder SSD.
 3. Plug in the eGPU adapter **with the GPU PSU OFF**.
 4. Switch the PSU **ON**, wait ~5 s.
-5. Press a key; the script resets and retrains the link.
+5. Press a key; the script checks whether the GPU answers.
+6. If it reads `FF FF`: **PSU off 5 s, on 5 s**, type `again`. Repeat until it answers.
 
-Why: if the GPU is already powered when the adapter is plugged in, it gets a reference clock
-**after** power-up and never sees a PERST# reset after that. On this setup the link then gets stuck in
-training (Link Status `Link Training = 1`, `DLL Link Active = 0`). Powering the GPU **after** the
-clock is present lets its power-on reset do the job PERST# normally does. See
-[how-it-works.md](how-it-works.md#5-hot-swap-link-stuck-in-training).
+Why: the GPU has to come out of its power-on reset while the reference clock is already
+running. Otherwise it never sees a PERST# pulse, and the link gets stuck in training (Link Status
+`Link Training = 1`, `DLL Link Active = 0`). Powering the GPU **after** the clock is present lets
+its power-on reset do the job PERST# normally does. This doesn't succeed every time; a second PSU
+power-cycle has always fixed it so far. Software resets (Secondary Bus Reset, link
+disable/retrain) **never** rescued a failed attempt. See
+[how-it-works.md](how-it-works.md#5-gpu-attached-in-the-shell-link-sometimes-never-comes-up).
 
 > Hot-swapping M.2 devices while the laptop is powered on stresses the connector and the devices.
 > Insert straight and quickly, and don't rock the card. You accept that risk.
